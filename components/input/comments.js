@@ -1,20 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 
+import NotificationContext from "../../store/notification-context";
 import CommentList from "./comment-list";
 import NewComment from "./new-comment";
 import classes from "./comments.module.css";
 
 function Comments(props) {
   const { eventId } = props;
+  const notificationCtx = useContext(NotificationContext);
 
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
+  const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
     if (showComments) {
+      setIsFetching(true);
+
       fetch("/api/comments/" + eventId)
         .then((response) => response.json())
-        .then((data) => setComments(data.comments));
+        .then((data) => {
+          setComments(data.comments);
+          setIsFetching(false);
+        });
     }
   }, [showComments]);
 
@@ -23,6 +31,12 @@ function Comments(props) {
   }
 
   function addCommentHandler(commentData) {
+    notificationCtx.showNotification({
+      title: "Creating comment...",
+      message: "Creating a new comment for this event",
+      status: "pending",
+    });
+
     fetch("/api/comments/" + eventId, {
       method: "POST",
       body: JSON.stringify(commentData),
@@ -30,8 +44,29 @@ function Comments(props) {
         "Content-Type": "application/json",
       },
     })
-      .then((response) => response.json())
-      .then((data) => console.log(data));
+      .then((response) => {
+        if (response.ok) {
+          return response.json();
+        }
+
+        return response.json().then((data) => {
+          throw new Error(data.message || "Could not create comment");
+        });
+      })
+      .then(() => {
+        notificationCtx.showNotification({
+          title: "Success!",
+          message: "Successfully created a new comment",
+          status: "success",
+        });
+      })
+      .catch((err) => {
+        notificationCtx.showNotification({
+          title: "Oops!",
+          message: err.message || "Could not create a new comment",
+          status: "error",
+        });
+      });
   }
 
   return (
@@ -40,7 +75,8 @@ function Comments(props) {
         {showComments ? "Hide" : "Show"} Comments
       </button>
       {showComments && <NewComment onAddComment={addCommentHandler} />}
-      {showComments && <CommentList items={comments} />}
+      {showComments && !isFetching && <CommentList items={comments} />}
+      {showComments && isFetching && <p>Loading...</p>}
     </section>
   );
 }
