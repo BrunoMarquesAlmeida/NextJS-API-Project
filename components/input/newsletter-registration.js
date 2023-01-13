@@ -8,9 +8,11 @@ function NewsletterRegistration() {
   function registrationHandler(event) {
     event.preventDefault();
 
+    const email = submittedEmail.current.value;
+
     fetch("/api/newsletter", {
       method: "POST",
-      body: JSON.stringify({ email: submittedEmail.current.value }),
+      body: JSON.stringify({ email }),
       headers: {
         "Content-Type": "application/json",
       },
